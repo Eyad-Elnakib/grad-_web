@@ -258,7 +258,8 @@ export default function Dashboard() {
               noClaim: t.no_claim,
               verdict: t.result ? (t.result.final_prediction === "SUPPORTS" ? "Verified" : t.result.final_prediction === "REFUTES" ? "Misinformation" : "Not Enough Info") : "No Claim",
               explanation: t.result ? (t.result.explanation || "No details provided.") : "No checkable factual claim found in this section.",
-              sources: t.result ? (t.result.evidence || []) : []
+              sources: t.result ? (t.result.evidence || []) : [],
+              confidence: t.result ? (t.result.confidence || 0.8) : 0.0
             }))
           });
           setApiStatus("connected");
@@ -289,7 +290,7 @@ export default function Dashboard() {
           }
         ],
         textResults: [
-          { source: "outside", raw: "Breaking: New scientific study confirms flat earth theory.", noClaim: false, verdict: "Misinformation", explanation: "Flat earth claims are scientifically refuted. All space agencies and physics models confirm the Earth's geoid shape.", sources: [] }
+          { source: "outside", raw: "Breaking: New scientific study confirms flat earth theory.", noClaim: false, verdict: "Misinformation", explanation: "Flat earth claims are scientifically refuted. All space agencies and physics models confirm the Earth's geoid shape.", sources: [], confidence: 0.85 }
         ]
       });
       setApiStatus("demo");
@@ -869,17 +870,15 @@ export default function Dashboard() {
                               <div className="grid grid-cols-1 gap-3">
                                 {postResult.regions.map((reg: any) => {
                                   const isFake = !reg.label.toLowerCase().includes("real") && !reg.label.toLowerCase().includes("auth");
+                                  const labelText = isFake ? "AI Generated" : "Authentic Image";
                                   return (
                                     <div key={reg.id} className="bg-black/30 border border-white/5 rounded-xl p-4 flex flex-col gap-4 hover:bg-white/5 transition-colors">
                                       <div className="flex justify-between items-center">
                                         <div className="flex flex-col">
                                           <span className="text-sm font-semibold text-white capitalize">{reg.type}</span>
-                                          <span className="text-xs text-neutral-400 font-mono">Conf: {Math.round(reg.confidence * 100)}%</span>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                          <Badge variant="outline" className={!isFake ? "text-green-400 border-green-500/20 bg-green-500/5" : "text-red-400 border-red-500/20 bg-red-500/5"}>
-                                            {reg.label}
-                                          </Badge>
+                                          {renderVerdictBadge(labelText)}
                                           {reg.classificationUrl && (
                                             <button
                                               onClick={() => setSelectedReportUrl(reg.classificationUrl)}
@@ -889,6 +888,20 @@ export default function Dashboard() {
                                             </button>
                                           )}
                                         </div>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-xs">
+                                          <span className="text-neutral-400">
+                                            {isFake ? "AI Probability" : "Authenticity Score"}
+                                          </span>
+                                          <span className="font-mono font-bold text-white">{Math.round(reg.confidence * 100)}%</span>
+                                        </div>
+                                        <Progress 
+                                          value={reg.confidence * 100} 
+                                          className="h-1.5 bg-neutral-800" 
+                                          indicatorClassName={isFake ? "bg-purple-500" : "bg-green-500"} 
+                                        />
                                       </div>
                                       
                                       {isFake && reg.segmentationUrl && (
@@ -922,20 +935,35 @@ export default function Dashboard() {
                               <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Extracted Claims ({postResult.textResults.length})</h4>
                               <div className="space-y-3">
                                 {postResult.textResults.map((tr: any, idx: number) => (
-                                  <div key={idx} className="bg-black/40 border border-white/5 rounded-xl p-4 space-y-3">
+                                  <div key={idx} className="bg-black/40 border border-white/5 rounded-xl p-4 space-y-4">
                                     <div className="flex justify-between items-center border-b border-white/5 pb-2">
                                       <span className="text-xs font-mono text-neutral-500 capitalize">{tr.source} context</span>
-                                      <Badge variant="outline" className={tr.verdict === "Verified" ? "text-green-400 border-green-500/20 bg-green-500/5" : tr.verdict === "Misinformation" ? "text-red-400 border-red-500/20 bg-red-500/5" : "text-yellow-400 border-yellow-500/20 bg-yellow-500/5"}>
-                                        {tr.verdict}
-                                      </Badge>
+                                      {renderVerdictBadge(tr.verdict)}
                                     </div>
                                     <p className="text-xs text-neutral-400 italic bg-black/20 p-2 rounded-lg border border-white/5">
                                       "{tr.raw.slice(0, 150)}{tr.raw.length > 150 ? '...' : ''}"
                                     </p>
+
+                                    {tr.verdict !== "No Claim" && (
+                                      <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-xs">
+                                          <span className="text-neutral-400">
+                                            {tr.verdict === "Verified" ? "Verification Confidence" : "Confidence Score"}
+                                          </span>
+                                          <span className="font-mono font-bold text-white">{Math.round((tr.confidence || 0.8) * 100)}%</span>
+                                        </div>
+                                        <Progress 
+                                          value={(tr.confidence || 0.8) * 100} 
+                                          className="h-1.5 bg-neutral-800" 
+                                          indicatorClassName={tr.verdict === "Verified" ? "bg-green-500" : "bg-red-500"} 
+                                        />
+                                      </div>
+                                    )}
+
                                     <p className="text-sm text-neutral-300 leading-relaxed">{tr.explanation}</p>
                                     
                                     {tr.sources && tr.sources.length > 0 && (
-                                      <div className="flex flex-col gap-1.5 pt-2">
+                                      <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
                                         <span className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider">References:</span>
                                         {tr.sources.slice(0, 2).map((s: any, sIdx: number) => (
                                           <a key={sIdx} href={s.url !== "#" ? s.url : undefined} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1">
