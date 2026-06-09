@@ -380,7 +380,11 @@ export default function Dashboard() {
     );
   };
 
-  const isLoading = isTextLoading || isImageLoading || isPostLoading || isVideoLoading;
+  const isLoading = 
+    (activeTab === "text" && isTextLoading) || 
+    (activeTab === "image" && isImageLoading) || 
+    (activeTab === "post" && isPostLoading) || 
+    (activeTab === "video" && isVideoLoading);
 
   return (
     <div className="min-h-screen bg-black text-neutral-100 flex flex-col relative overflow-hidden">
