@@ -38,6 +38,7 @@ export default function Dashboard() {
   const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
   const [isPostLoading, setIsPostLoading] = useState(false);
   const [postResult, setPostResult] = useState<any>(null);
+  const [postResultView, setPostResultView] = useState<"overall" | "text" | "image">("overall");
 
   // States for video analysis
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -211,6 +212,7 @@ export default function Dashboard() {
       };
       reader.readAsDataURL(file);
       setPostResult(null);
+      setPostResultView("overall");
     }
   };
 
@@ -218,6 +220,7 @@ export default function Dashboard() {
     if (!postImagePreview) return;
     setIsPostLoading(true);
     setPostResult(null);
+    setPostResultView("overall");
 
     try {
       const res = await fetch("http://127.0.0.1:5001/process-screenshot", {
@@ -854,136 +857,186 @@ export default function Dashboard() {
                         </div>
                       </CardHeader>
                       <CardContent className="flex flex-col gap-6 max-h-[600px] overflow-y-auto pr-2 glass-scrollbar">
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-neutral-400">Overall Reliability Rating</span>
-                              <span className="font-mono font-bold text-white">{Math.round((1 - postResult.confidence) * 100)}%</span>
-                            </div>
-                            <Progress value={(1 - postResult.confidence) * 100} className="h-2 bg-neutral-800" indicatorClassName="bg-yellow-500" />
-                          </div>
-                          
-                          {/* Render Sub-regions if available */}
-                          {postResult.regions && postResult.regions.length > 0 && (
-                            <div className="space-y-2.5">
-                              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Detected Sub-Images ({postResult.regions.length})</h4>
-                              <div className="grid grid-cols-1 gap-3">
-                                {postResult.regions.map((reg: any) => {
-                                  const isFake = !reg.label.toLowerCase().includes("real") && !reg.label.toLowerCase().includes("auth");
-                                  const labelText = isFake ? "AI Generated" : "Authentic Image";
-                                  return (
-                                    <div key={reg.id} className="bg-black/30 border border-white/5 rounded-xl p-4 flex flex-col gap-4 hover:bg-white/5 transition-colors">
-                                      <div className="flex justify-between items-center">
-                                        <div className="flex flex-col">
-                                          <span className="text-sm font-semibold text-white capitalize">{reg.type}</span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                          {renderVerdictBadge(labelText)}
-                                          {reg.classificationUrl && (
-                                            <button
-                                              onClick={() => setSelectedReportUrl(reg.classificationUrl)}
-                                              className="text-xs text-blue-400 hover:text-blue-300 hover:underline bg-transparent border-0 cursor-zoom-in"
-                                            >
-                                              Report Card
-                                            </button>
-                                          )}
-                                        </div>
-                                      </div>
+                        {/* Sub-view selector switch */}
+                        <div className="flex justify-between items-center bg-black/40 p-1 rounded-xl border border-white/5">
+                          <button
+                            type="button"
+                            onClick={() => setPostResultView("overall")}
+                            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${postResultView === "overall" ? "bg-neutral-800 text-white shadow-md" : "text-neutral-500 hover:text-neutral-300"}`}
+                          >
+                            Overall Status
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPostResultView("text")}
+                            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${postResultView === "text" ? "bg-neutral-800 text-white shadow-md" : "text-neutral-500 hover:text-neutral-300"}`}
+                          >
+                            Text Claims
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPostResultView("image")}
+                            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${postResultView === "image" ? "bg-neutral-800 text-white shadow-md" : "text-neutral-500 hover:text-neutral-300"}`}
+                          >
+                            Image Forensics
+                          </button>
+                        </div>
 
-                                      <div className="space-y-2">
-                                        <div className="flex justify-between items-center text-xs">
-                                          <span className="text-neutral-400">
-                                            {isFake ? "AI Probability" : "Authenticity Score"}
-                                          </span>
-                                          <span className="font-mono font-bold text-white">{Math.round(reg.confidence * 100)}%</span>
-                                        </div>
-                                        <Progress 
-                                          value={reg.confidence * 100} 
-                                          className="h-1.5 bg-neutral-800" 
-                                          indicatorClassName={isFake ? "bg-purple-500" : "bg-green-500"} 
-                                        />
+                        <div className="space-y-4">
+                          {/* PAGE 1: OVERALL ANALYSIS */}
+                          {postResultView === "overall" && (
+                            <motion.div 
+                              initial={{ opacity: 0, y: 5 }} 
+                              animate={{ opacity: 1, y: 0 }} 
+                              className="space-y-4"
+                            >
+                              <div className="space-y-2">
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-neutral-400">Overall Reliability Rating</span>
+                                  <span className="font-mono font-bold text-white">{Math.round((1 - postResult.confidence) * 100)}%</span>
+                                </div>
+                                <Progress value={(1 - postResult.confidence) * 100} className="h-2 bg-neutral-800" indicatorClassName="bg-yellow-500" />
+                              </div>
+
+                              <div className="space-y-2 bg-black/40 p-4 rounded-xl border border-white/5">
+                                <h4 className="text-sm font-semibold text-neutral-300">Overall Explanation</h4>
+                                <p className="text-sm text-neutral-400 leading-relaxed">
+                                  {postResult.explanation}
+                                </p>
+                              </div>
+                            </motion.div>
+                          )}
+
+                          {/* PAGE 2: TEXT CLAIMS */}
+                          {postResultView === "text" && (
+                            <motion.div 
+                              initial={{ opacity: 0, y: 5 }} 
+                              animate={{ opacity: 1, y: 0 }}
+                              className="space-y-3"
+                            >
+                              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Extracted Claims ({postResult.textResults?.length || 0})</h4>
+                              {postResult.textResults && postResult.textResults.length > 0 ? (
+                                <div className="space-y-3">
+                                  {postResult.textResults.map((tr: any, idx: number) => (
+                                    <div key={idx} className="bg-black/40 border border-white/5 rounded-xl p-4 space-y-4">
+                                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                        <span className="text-xs font-mono text-neutral-500 capitalize">{tr.source} context</span>
+                                        {renderVerdictBadge(tr.verdict)}
                                       </div>
-                                      
-                                      {isFake && reg.segmentationUrl && (
+                                      <p className="text-xs text-neutral-400 italic bg-black/20 p-2 rounded-lg border border-white/5">
+                                        "{tr.raw.slice(0, 150)}{tr.raw.length > 150 ? '...' : ''}"
+                                      </p>
+
+                                      {tr.verdict !== "No Claim" && (
                                         <div className="space-y-2">
-                                          <span className="text-xs font-semibold text-red-400/90 uppercase tracking-wider block">Localization Heatmap (Pixel Anomaly)</span>
-                                          <div 
-                                            className="relative w-full h-[280px] rounded-lg overflow-hidden bg-black/60 border border-red-500/10 flex items-center justify-center cursor-zoom-in group"
-                                            onClick={() => setSelectedReportUrl(reg.segmentationUrl)}
-                                          >
-                                            <img 
-                                              src={reg.segmentationUrl} 
-                                              className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]" 
-                                              alt="Sub-region Heatmap" 
-                                            />
-                                            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 px-2.5 py-1 rounded text-[10px] font-mono text-neutral-400 border border-white/10 pointer-events-none">
-                                              Click to zoom
-                                            </div>
+                                          <div className="flex justify-between items-center text-xs">
+                                            <span className="text-neutral-400">
+                                              {tr.verdict === "Verified" ? "Verification Confidence" : "Confidence Score"}
+                                            </span>
+                                            <span className="font-mono font-bold text-white">{Math.round((tr.confidence || 0.8) * 100)}%</span>
                                           </div>
+                                          <Progress 
+                                            value={(tr.confidence || 0.8) * 100} 
+                                            className="h-1.5 bg-neutral-800" 
+                                            indicatorClassName={tr.verdict === "Verified" ? "bg-green-500" : "bg-red-500"} 
+                                          />
+                                        </div>
+                                      )}
+
+                                      <p className="text-sm text-neutral-300 leading-relaxed">{tr.explanation}</p>
+                                      
+                                      {tr.sources && tr.sources.length > 0 && (
+                                        <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
+                                          <span className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider">References:</span>
+                                          {tr.sources.slice(0, 2).map((s: any, sIdx: number) => (
+                                            <a key={sIdx} href={s.url !== "#" ? s.url : undefined} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1">
+                                              • {s.title || s.domain}
+                                            </a>
+                                          ))}
                                         </div>
                                       )}
                                     </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-neutral-500 text-sm text-center py-8">No text claims were extracted from this post.</p>
+                              )}
+                            </motion.div>
                           )}
 
-                          {/* Render Text Claims if available */}
-                          {postResult.textResults && postResult.textResults.length > 0 && (
-                            <div className="space-y-2.5 pt-2">
-                              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Extracted Claims ({postResult.textResults.length})</h4>
-                              <div className="space-y-3">
-                                {postResult.textResults.map((tr: any, idx: number) => (
-                                  <div key={idx} className="bg-black/40 border border-white/5 rounded-xl p-4 space-y-4">
-                                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                                      <span className="text-xs font-mono text-neutral-500 capitalize">{tr.source} context</span>
-                                      {renderVerdictBadge(tr.verdict)}
-                                    </div>
-                                    <p className="text-xs text-neutral-400 italic bg-black/20 p-2 rounded-lg border border-white/5">
-                                      "{tr.raw.slice(0, 150)}{tr.raw.length > 150 ? '...' : ''}"
-                                    </p>
-
-                                    {tr.verdict !== "No Claim" && (
-                                      <div className="space-y-2">
-                                        <div className="flex justify-between items-center text-xs">
-                                          <span className="text-neutral-400">
-                                            {tr.verdict === "Verified" ? "Verification Confidence" : "Confidence Score"}
-                                          </span>
-                                          <span className="font-mono font-bold text-white">{Math.round((tr.confidence || 0.8) * 100)}%</span>
+                          {/* PAGE 3: IMAGE FORENSICS */}
+                          {postResultView === "image" && (
+                            <motion.div 
+                              initial={{ opacity: 0, y: 5 }} 
+                              animate={{ opacity: 1, y: 0 }}
+                              className="space-y-3"
+                            >
+                              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Detected Image Regions ({postResult.regions?.length || 0})</h4>
+                              {postResult.regions && postResult.regions.length > 0 ? (
+                                <div className="grid grid-cols-1 gap-3">
+                                  {postResult.regions.map((reg: any) => {
+                                    const isFake = !reg.label.toLowerCase().includes("real") && !reg.label.toLowerCase().includes("auth");
+                                    const labelText = isFake ? "AI Generated" : "Authentic Image";
+                                    return (
+                                      <div key={reg.id} className="bg-black/30 border border-white/5 rounded-xl p-4 flex flex-col gap-4 hover:bg-white/5 transition-colors">
+                                        <div className="flex justify-between items-center">
+                                          <div className="flex flex-col">
+                                            <span className="text-sm font-semibold text-white capitalize">{reg.type}</span>
+                                          </div>
+                                          <div className="flex items-center gap-3">
+                                            {renderVerdictBadge(labelText)}
+                                            {reg.classificationUrl && (
+                                              <button
+                                                onClick={() => setSelectedReportUrl(reg.classificationUrl)}
+                                                className="text-xs text-blue-400 hover:text-blue-300 hover:underline bg-transparent border-0 cursor-zoom-in"
+                                              >
+                                                Report Card
+                                              </button>
+                                            )}
+                                          </div>
                                         </div>
-                                        <Progress 
-                                          value={(tr.confidence || 0.8) * 100} 
-                                          className="h-1.5 bg-neutral-800" 
-                                          indicatorClassName={tr.verdict === "Verified" ? "bg-green-500" : "bg-red-500"} 
-                                        />
-                                      </div>
-                                    )}
 
-                                    <p className="text-sm text-neutral-300 leading-relaxed">{tr.explanation}</p>
-                                    
-                                    {tr.sources && tr.sources.length > 0 && (
-                                      <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
-                                        <span className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider">References:</span>
-                                        {tr.sources.slice(0, 2).map((s: any, sIdx: number) => (
-                                          <a key={sIdx} href={s.url !== "#" ? s.url : undefined} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1">
-                                            • {s.title || s.domain}
-                                          </a>
-                                        ))}
+                                        <div className="space-y-2">
+                                          <div className="flex justify-between items-center text-xs">
+                                            <span className="text-neutral-400">
+                                              {isFake ? "AI Probability" : "Authenticity Score"}
+                                            </span>
+                                            <span className="font-mono font-bold text-white">{Math.round(reg.confidence * 100)}%</span>
+                                          </div>
+                                          <Progress 
+                                            value={reg.confidence * 100} 
+                                            className="h-1.5 bg-neutral-800" 
+                                            indicatorClassName={isFake ? "bg-purple-500" : "bg-green-500"} 
+                                          />
+                                        </div>
+                                        
+                                        {reg.segmentationUrl && (
+                                          <div className="space-y-2">
+                                            <span className="text-xs font-semibold text-red-400/90 uppercase tracking-wider block">Localization Heatmap (Pixel Anomaly)</span>
+                                            <div 
+                                              className="relative w-full h-[280px] rounded-lg overflow-hidden bg-black/60 border border-red-500/10 flex items-center justify-center cursor-zoom-in group"
+                                              onClick={() => setSelectedReportUrl(reg.segmentationUrl)}
+                                            >
+                                              <img 
+                                                src={reg.segmentationUrl} 
+                                                className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]" 
+                                                alt="Sub-region Heatmap" 
+                                              />
+                                              <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 px-2.5 py-1 rounded text-[10px] font-mono text-neutral-400 border border-white/10 pointer-events-none">
+                                                Click to zoom
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-neutral-500 text-sm text-center py-8">No image regions were extracted from this post.</p>
+                              )}
+                            </motion.div>
                           )}
-                        </div>
-                        
-                        <div className="space-y-2 bg-black/40 p-4 rounded-xl border border-white/5 mt-4">
-                          <h4 className="text-sm font-semibold text-neutral-300">Overall Explanation</h4>
-                          <p className="text-sm text-neutral-400 leading-relaxed">
-                            {postResult.explanation}
-                          </p>
                         </div>
                       </CardContent>
                     </Card>
